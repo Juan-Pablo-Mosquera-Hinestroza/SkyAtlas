@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+} from "react";
 import {
   View,
   FlatList,
@@ -14,6 +20,7 @@ import {
   Keyboard,
   Modal,
   Pressable,
+  Share,
 } from "react-native";
 
 import EventCard from "../components/EventCard";
@@ -66,16 +73,42 @@ const formatEventLine = (event) => {
   return `${event.image} ${event.title} — ${formatDate(event.date)}${daysText}`;
 };
 
+const formatTime = (date) =>
+  date.toLocaleTimeString("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const formatDateLabel = (date) =>
+  date.toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+const createMessage = (type, text, status = "received") => ({
+  id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  type,
+  text,
+  timestamp: new Date(),
+  status,
+});
+
+const initialBotMessage = createMessage(
+  "bot",
+  '¡Hola! Soy Astro-IA. Pregúntame por eclipses, meteoros, la Luna o recomendaciones astronómicas.',
+);
+
 const HomeScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
 
   const [aiInput, setAiInput] = useState("");
-  const [aiLastQuestion, setAiLastQuestion] = useState("");
-  const [aiAnswer, setAiAnswer] = useState(
-    'Escribe algo como: "recomiéndame un evento", "próximo eclipse" o "eventos en abril".',
-  );
+  const [messages, setMessages] = useState([initialBotMessage]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isAiOpen, setIsAiOpen] = useState(false);
+  const [isBotTyping, setIsBotTyping] = useState(false);
+  const chatListRef = useRef(null);
 
   const platformName = useMemo(
     () => (Platform.OS === "ios" ? "iOS" : "Android"),
@@ -185,17 +218,58 @@ const HomeScreen = ({ navigation }) => {
     [upcomingEvents],
   );
 
+  const filteredMessages = useMemo(() => {
+    const query = normalizeText(searchQuery.trim());
+    if (!query) return messages;
+    return messages.filter((message) =>
+      normalizeText(message.text).includes(query),
+    );
+  }, [messages, searchQuery]);
+
+  useEffect(() => {
+    if (chatListRef.current && messages.length > 0) {
+      chatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages, isAiOpen]);
+
   const handleAiSend = useCallback(() => {
     const question = aiInput.trim();
-    setAiLastQuestion(question);
-    setAiAnswer(generateAiAnswer(aiInput));
-    if (question) setAiInput("");
+    if (!question) return;
+
+    const userMessage = createMessage("user", question, "sent");
+    setMessages((prev) => [...prev, userMessage]);
+    setAiInput("");
     Keyboard.dismiss();
+    setIsBotTyping(true);
+
+    const answerText = generateAiAnswer(question);
+    setTimeout(() => {
+      const botMessage = createMessage("bot", answerText, "received");
+      setMessages((prev) => [...prev, botMessage]);
+      setIsBotTyping(false);
+    }, 700);
   }, [aiInput, generateAiAnswer]);
 
   const handleAiQuickFill = useCallback((text) => {
     setAiInput(text);
   }, []);
+
+  const handleExportConversation = useCallback(async () => {
+    const transcript = messages
+      .map((message) => {
+        const prefix = message.type === "user" ? "Tú" : "Astro-IA";
+        return `${prefix} (${formatTime(message.timestamp)}): ${message.text}`;
+      })
+      .join("\n\n");
+
+    try {
+      await Share.share({
+        message: transcript,
+      });
+    } catch (error) {
+      Alert.alert("Exportar", "No se pudo exportar la conversación.");
+    }
+  }, [messages]);
 
   const handleAiOpen = useCallback(() => {
     setIsAiOpen(true);
@@ -205,6 +279,69 @@ const HomeScreen = ({ navigation }) => {
     setIsAiOpen(false);
     Keyboard.dismiss();
   }, []);
+
+  const renderChatItem = useCallback(
+    ({ item, index }) => {
+      const previous = filteredMessages[index - 1];
+      const showDateDivider =
+        !previous ||
+        item.timestamp.toDateString() !== previous.timestamp.toDateString();
+      const isUser = item.type === "user";
+
+      return (
+        <>
+          {showDateDivider && (
+            <View style={styles.dateDivider}>
+              <Text style={styles.dateDividerText}>
+                {formatDateLabel(item.timestamp)}
+              </Text>
+            </View>
+          )}
+          <View
+            style={[
+              styles.messageRow,
+              isUser ? styles.messageRowUser : styles.messageRowBot,
+            ]}
+          >
+            {!isUser && (
+              <View style={styles.avatarBubble}>
+                <Text style={styles.avatarText}>🤖</Text>
+              </View>
+            )}
+            <View
+              style={[
+                styles.messageBubble,
+                isUser ? styles.userBubble : styles.botBubble,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.messageText,
+                  isUser ? styles.userMessageText : styles.botMessageText,
+                ]}
+              >
+                {item.text}
+              </Text>
+              <View style={styles.messageMeta}>
+                <Text style={styles.messageTime}>
+                  {formatTime(item.timestamp)}
+                </Text>
+                {isUser && (
+                  <Text style={styles.messageStatus}>Enviado</Text>
+                )}
+              </View>
+            </View>
+            {isUser && (
+              <View style={styles.avatarBubble}>
+                <Text style={styles.avatarText}>🧑</Text>
+              </View>
+            )}
+          </View>
+        </>
+      );
+    },
+    [filteredMessages],
+  );
 
   const handlePlatformInfoPress = useCallback(() => {
     if (Platform.OS === "android") {
@@ -388,16 +525,31 @@ const HomeScreen = ({ navigation }) => {
         <Pressable style={styles.aiOverlay} onPress={handleAiClose}>
           <Pressable style={styles.aiSheet} onPress={() => {}}>
             <View style={styles.aiSheetHeader}>
-              <Text style={styles.aiSheetTitle}>Astro-IA</Text>
-              <TouchableOpacity
-                onPress={handleAiClose}
-                activeOpacity={0.85}
-                style={styles.aiCloseButton}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar chatbot"
-              >
-                <Text style={styles.aiCloseButtonText}>✕</Text>
-              </TouchableOpacity>
+              <View>
+                <Text style={styles.aiSheetTitle}>Astro-IA</Text>
+                <Text style={styles.aiSheetSubtitle}>
+                  {isBotTyping ? "Escribiendo…" : "Historial de la conversación"}
+                </Text>
+              </View>
+              <View style={styles.aiSheetHeaderActions}>
+                <TouchableOpacity
+                  onPress={handleExportConversation}
+                  activeOpacity={0.85}
+                  style={styles.exportButton}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.exportButtonText}>Exportar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleAiClose}
+                  activeOpacity={0.85}
+                  style={styles.aiCloseButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Cerrar chatbot"
+                >
+                  <Text style={styles.aiCloseButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View
@@ -407,15 +559,52 @@ const HomeScreen = ({ navigation }) => {
                 isSmallScreen && styles.aiCardSmall,
               ]}
             >
-              <Text style={styles.aiSubtitle}>
-                Pregúntame por eclipses, meteoros, Luna o recomendaciones.
-              </Text>
+              <TextInput
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Buscar en el historial..."
+                placeholderTextColor="#7d86a8"
+                style={styles.aiSearchInput}
+                returnKeyType="search"
+              />
+              <View style={styles.chatContainer}>
+                <FlatList
+                  ref={chatListRef}
+                  data={filteredMessages}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderChatItem}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.chatContent}
+                  onContentSizeChange={() => {
+                    chatListRef.current?.scrollToEnd({ animated: true });
+                  }}
+                  ListEmptyComponent={
+                    <View style={styles.emptyState}>
+                      <Text style={styles.emptyStateText}>
+                        No hay mensajes que coincidan con tu búsqueda.
+                      </Text>
+                    </View>
+                  }
+                />
+                {isBotTyping && (
+                  <View style={styles.typingRow}>
+                    <View style={styles.avatarBubble}>
+                      <Text style={styles.avatarText}>🤖</Text>
+                    </View>
+                    <View style={styles.typingIndicatorBubble}>
+                      <View style={styles.typingDot} />
+                      <View style={styles.typingDot} />
+                      <View style={styles.typingDot} />
+                    </View>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.aiInputRow}>
                 <TextInput
                   value={aiInput}
                   onChangeText={setAiInput}
-                  placeholder="Ej: próximo eclipse, recomiéndame un evento, eventos en abril…"
+                  placeholder="Ej: próximo eclipse, recomiéndame un evento…"
                   placeholderTextColor="#7d86a8"
                   style={styles.aiInput}
                   returnKeyType="send"
@@ -454,13 +643,6 @@ const HomeScreen = ({ navigation }) => {
                   <Text style={styles.aiQuickChipText}>Abril</Text>
                 </TouchableOpacity>
               </View>
-
-              <View style={styles.aiAnswerBox}>
-                {!!aiLastQuestion && (
-                  <Text style={styles.aiQuestionText}>Tú: {aiLastQuestion}</Text>
-                )}
-                <Text style={styles.aiAnswerText}>{aiAnswer}</Text>
-              </View>
             </View>
           </Pressable>
         </Pressable>
@@ -486,7 +668,6 @@ const styles = StyleSheet.create({
   },
   platformActions: {
     flexDirection: "column",
-    gap: 8,
     alignItems: "flex-end",
   },
   platformChip: {
@@ -601,6 +782,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  aiSheetHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  aiSheetSubtitle: {
+    color: "#7d86a8",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  exportButton: {
+    backgroundColor: "#1c2a46",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#2d3459",
+  },
+  exportButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   aiSheetTitle: {
     color: "#ffffff",
     fontSize: 16,
@@ -660,10 +863,132 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginBottom: 10,
   },
+  aiSearchInput: {
+    backgroundColor: "#0f1626",
+    borderColor: "#2d3459",
+    borderWidth: 1,
+    borderRadius: 14,
+    color: "#ffffff",
+    paddingHorizontal: 14,
+    paddingVertical: Platform.select({ ios: 12, android: 10 }),
+    marginBottom: 12,
+  },
+  chatContainer: {
+    maxHeight: 320,
+    minHeight: 220,
+    marginBottom: 12,
+  },
+  chatContent: {
+    paddingBottom: 8,
+  },
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 10,
+  },
+  messageRowBot: {
+    justifyContent: "flex-start",
+  },
+  messageRowUser: {
+    justifyContent: "flex-end",
+  },
+  avatarBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#16213e",
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 8,
+  },
+  avatarText: {
+    fontSize: 18,
+  },
+  messageBubble: {
+    maxWidth: "78%",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+  },
+  userBubble: {
+    backgroundColor: "#2ecc71",
+    borderBottomRightRadius: 4,
+  },
+  botBubble: {
+    backgroundColor: "#16213e",
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: "#2d3459",
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  userMessageText: {
+    color: "#0f0f1e",
+  },
+  botMessageText: {
+    color: "#ffffff",
+  },
+  messageMeta: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 6,
+  },
+  messageTime: {
+    color: "#7d86a8",
+    fontSize: 11,
+  },
+  messageStatus: {
+    color: "#7d86a8",
+    fontSize: 11,
+    marginLeft: 8,
+  },
+  dateDivider: {
+    alignSelf: "center",
+    backgroundColor: "#16213e",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 10,
+  },
+  dateDividerText: {
+    color: "#a0a0b0",
+    fontSize: 12,
+    textTransform: "capitalize",
+  },
+  emptyState: {
+    padding: 22,
+    alignItems: "center",
+  },
+  emptyStateText: {
+    color: "#7d86a8",
+    fontSize: 13,
+    textAlign: "center",
+  },
+  typingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  typingIndicatorBubble: {
+    flexDirection: "row",
+    backgroundColor: "#16213e",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+  },
+  typingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#2ecc71",
+    marginHorizontal: 3,
+  },
   aiInputRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
   },
   aiInput: {
     flex: 1,
@@ -681,6 +1006,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
+    marginLeft: 10,
   },
   aiButtonText: {
     color: "#0f0f1e",
@@ -690,7 +1016,6 @@ const styles = StyleSheet.create({
   aiQuickRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
     marginTop: 10,
   },
   aiQuickChip: {
@@ -700,6 +1025,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
+    marginRight: 8,
+    marginBottom: 8,
   },
   aiQuickChipText: {
     color: "#ffffff",
