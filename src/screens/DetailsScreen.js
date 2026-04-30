@@ -1,7 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import {
-  Animated,
-  Alert,
   View,
   Text,
   ScrollView,
@@ -9,6 +7,7 @@ import {
   StatusBar,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 
 import InfoRow from "../components/InfoRow";
@@ -18,17 +17,11 @@ const DetailsScreen = ({ route, navigation }) => {
   const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 380;
   const isShortScreen = height < 700;
-  const [feedbackMessage, setFeedbackMessage] = useState(
-    "Aun no has agregado este evento a tu perfil.",
-  );
-  const buttonScaleAnim = useRef(new Animated.Value(1)).current;
+  const isAndroid = Platform.OS === "android";
+  const accentColor = isAndroid ? "#2ecc71" : "#4a90e2";
 
   // useCallback para memorizar la función de navegación
   const handleGoToProfile = useCallback(() => {
-    setFeedbackMessage(`Evento ${event.title} agregado a tu perfil.`);
-    Alert.alert("Evento agregado", `Se guardo ${event.title} en tu perfil.`, [
-      { text: "OK" },
-    ]);
     navigation.navigate("Profile", {
       eventName: event.title,
       eventType: event.type,
@@ -37,24 +30,6 @@ const DetailsScreen = ({ route, navigation }) => {
       equipment: event.equipment,
     });
   }, [navigation, event]);
-
-  const handleButtonPressIn = useCallback(() => {
-    Animated.spring(buttonScaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 5,
-    }).start();
-  }, [buttonScaleAnim]);
-
-  const handleButtonPressOut = useCallback(() => {
-    Animated.spring(buttonScaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 6,
-    }).start();
-  }, [buttonScaleAnim]);
 
   // Memorizar el estilo del icono basado en el tamaño de pantalla
   const iconSize = useMemo(() => (isSmallScreen ? 60 : 80), [isSmallScreen]);
@@ -173,34 +148,30 @@ const DetailsScreen = ({ route, navigation }) => {
         </View>
 
         {/* Botón para ir al perfil */}
-        <Animated.View style={{ transform: [{ scale: buttonScaleAnim }] }}>
-          <TouchableOpacity
-            style={[styles.button, isSmallScreen && styles.buttonSmall]}
-            onPress={handleGoToProfile}
-            onPressIn={handleButtonPressIn}
-            onPressOut={handleButtonPressOut}
-            activeOpacity={0.9}
-          >
-            <Text
-              style={[
-                styles.buttonText,
-                isSmallScreen && styles.buttonTextSmall,
-              ]}
-            >
-              👤 Ver en Mi Perfil de Observador
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-        <View style={styles.feedbackContainer}>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            isSmallScreen && styles.buttonSmall,
+            isAndroid ? styles.buttonAndroid : styles.buttonIOS,
+            isAndroid
+              ? { backgroundColor: accentColor, shadowColor: accentColor }
+              : { borderColor: accentColor },
+          ]}
+          onPress={handleGoToProfile}
+          activeOpacity={0.8}
+        >
           <Text
             style={[
-              styles.feedbackText,
-              isSmallScreen && styles.feedbackTextSmall,
+              styles.buttonText,
+              isSmallScreen && styles.buttonTextSmall,
+              isAndroid
+                ? styles.buttonTextAndroid
+                : { color: accentColor },
             ]}
           >
-            {feedbackMessage}
+            👤 Ver en Mi Perfil de Observador
           </Text>
-        </View>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -303,9 +274,9 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   tipsContainer: {
-    backgroundColor: "#1a3300",
+    backgroundColor: "#0f2a1a",
     borderLeftWidth: 4,
-    borderLeftColor: "#7fff00",
+    borderLeftColor: "#2ecc71",
     padding: 16,
     borderRadius: 12,
   },
@@ -320,7 +291,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   button: {
-    backgroundColor: "#3f78ba",
+    backgroundColor: "#4a90e2",
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -333,6 +304,17 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  buttonAndroid: {
+    paddingVertical: 18,
+    borderWidth: 0,
+    elevation: 7,
+  },
+  buttonIOS: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   buttonSmall: {
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -342,25 +324,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  buttonTextAndroid: {
+    color: "#0f0f1e",
+  },
   buttonTextSmall: {
     fontSize: 14,
-  },
-  feedbackContainer: {
-    backgroundColor: "#16213e",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: "#7fff00",
-  },
-  feedbackText: {
-    color: "#d7e9ff",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  feedbackTextSmall: {
-    fontSize: 12,
   },
 });
 

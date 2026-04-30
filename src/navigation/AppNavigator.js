@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import HomeScreen from "../screens/HomeScreen";
 import DetailsScreen from "../screens/DetailsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import PlatformDifferencesScreen from "../screens/PlatformDifferencesScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -32,7 +33,7 @@ const AppNavigator = () => {
           name="Home"
           component={HomeScreen}
           options={{
-            title: "🌌 Eventos Astronómicos NASA",
+            title: "🌌 SKYATLAS",
             headerTitleStyle: {
               fontSize: 18,
               fontWeight: "bold",
@@ -51,6 +52,13 @@ const AppNavigator = () => {
           component={ProfileScreen}
           options={{
             title: "Perfil de Observador",
+          }}
+        />
+        <Stack.Screen
+          name="PlatformDifferences"
+          component={PlatformDifferencesScreen}
+          options={{
+            title: "Android vs iOS",
           }}
         />
       </Stack.Navigator>

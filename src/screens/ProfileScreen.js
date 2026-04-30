@@ -466,9 +466,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   eventHighlight: {
-    backgroundColor: "#1a3300",
+    backgroundColor: "#0f2a1a",
     borderLeftWidth: 4,
-    borderLeftColor: "#7fff00",
+    borderLeftColor: "#2ecc71",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   eventHighlightTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#7fff00",
+    color: "#2ecc71",
     marginBottom: 12,
   },
   eventHighlightTitleSmall: {

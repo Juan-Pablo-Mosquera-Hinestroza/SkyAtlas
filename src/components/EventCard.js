@@ -1,83 +1,73 @@
-import React, { useCallback, useRef } from "react";
+import React from "react";
 import {
-  Animated,
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   useWindowDimensions,
+  Platform,
 } from "react-native";
 
 const EventCard = React.memo(({ event, onPress }) => {
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = useCallback(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.97,
-      useNativeDriver: true,
-      speed: 25,
-      bounciness: 5,
-    }).start();
-  }, [scaleAnim]);
-
-  const handlePressOut = useCallback(() => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 24,
-      bounciness: 6,
-    }).start();
-  }, [scaleAnim]);
+  const isAndroid = Platform.OS === "android";
+  const accentColor = isAndroid ? "#2ecc71" : "#4a90e2";
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity
-        style={[styles.card, isSmallScreen && styles.cardSmall]}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        activeOpacity={0.88}
-      >
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>{event.image}</Text>
-        </View>
+    <TouchableOpacity
+      style={[
+        styles.card,
+        isSmallScreen && styles.cardSmall,
+        isAndroid ? styles.cardAndroid : styles.cardIOS,
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.iconContainer}>
+        <Text style={styles.icon}>{event.image}</Text>
+      </View>
 
-        <View style={styles.contentContainer}>
-          <Text
-            style={[styles.title, isSmallScreen && styles.titleSmall]}
-            numberOfLines={2}
-          >
-            {event.title}
-          </Text>
+      <View style={styles.contentContainer}>
+        <Text
+          style={[styles.title, isSmallScreen && styles.titleSmall]}
+          numberOfLines={2}
+        >
+          {event.title}
+        </Text>
 
-          <View style={styles.infoRow}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{event.type}</Text>
-            </View>
-          </View>
-
-          <View style={styles.detailsRow}>
-            <Text style={[styles.date, isSmallScreen && styles.dateSmall]}>
-              📅 {event.date}
-            </Text>
+        <View style={styles.infoRow}>
+          <View style={[styles.badge, { backgroundColor: accentColor }]}>
             <Text
-              style={[styles.visibility, getVisibilityStyle(event.visibility)]}
+              style={[
+                styles.badgeText,
+                isAndroid && styles.badgeTextAndroid,
+              ]}
             >
-              {event.visibility}
+              {event.type}
             </Text>
           </View>
+        </View>
 
+        <View style={styles.detailsRow}>
+          <Text style={[styles.date, isSmallScreen && styles.dateSmall]}>
+            📅 {event.date}
+          </Text>
           <Text
-            style={[styles.location, isSmallScreen && styles.locationSmall]}
-            numberOfLines={1}
+            style={[styles.visibility, getVisibilityStyle(event.visibility)]}
           >
-            📍 {event.location}
+            {event.visibility}
           </Text>
         </View>
-      </TouchableOpacity>
-    </Animated.View>
+
+        <Text
+          style={[styles.location, isSmallScreen && styles.locationSmall]}
+          numberOfLines={1}
+        >
+          📍 {event.location}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 });
 
@@ -96,7 +86,7 @@ const getVisibilityStyle = (visibility) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#171f35",
+    backgroundColor: "#1a1a2e",
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
@@ -108,7 +98,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
     borderWidth: 1,
-    borderColor: "#2d4f7a",
+    borderColor: "#2d3459",
+  },
+  cardAndroid: {
+    borderWidth: 2,
+    borderColor: "#2ecc71",
+    elevation: 8,
+    shadowColor: "#2ecc71",
+  },
+  cardIOS: {
+    elevation: 0,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
   },
   cardSmall: {
     padding: 12,
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#1f2c4f",
+    backgroundColor: "#16213e",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -134,7 +135,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
     color: "#ffffff",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   titleSmall: {
     fontSize: 16,
@@ -145,15 +146,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   badge: {
-    backgroundColor: "#3f78ba",
+    backgroundColor: "#4a90e2",
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   badgeText: {
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "600",
+  },
+  badgeTextAndroid: {
+    color: "#0f0f1e",
   },
   detailsRow: {
     flexDirection: "row",
@@ -162,7 +166,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   date: {
-    color: "#c2d2e5",
+    color: "#a0a0b0",
     fontSize: 14,
   },
   dateSmall: {
@@ -176,12 +180,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   visibilityVeryHigh: {
-    color: "#00ff00",
-    backgroundColor: "#003300",
+    color: "#2ecc71",
+    backgroundColor: "#0a2212",
   },
   visibilityHigh: {
-    color: "#7fff00",
-    backgroundColor: "#1a3300",
+    color: "#2ecc71",
+    backgroundColor: "#0f2a1a",
   },
   visibilityMedium: {
     color: "#ffaa00",
@@ -192,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#330000",
   },
   location: {
-    color: "#9eb3ce",
+    color: "#8888a0",
     fontSize: 13,
   },
   locationSmall: {
