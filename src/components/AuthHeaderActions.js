@@ -1,4 +1,11 @@
-import React, { useContext, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   TouchableOpacity,
@@ -8,15 +15,21 @@ import {
   Modal,
   Pressable,
   Animated,
+  Easing,
+  Platform,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { AuthContext } from "../context/AuthContext";
+
+const DESKTOP_BREAKPOINT = 768;
 
 const AuthHeaderActions = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { width } = useWindowDimensions();
-  const isCompact = width < 420;
+  const isNativeMobile = Platform.OS === "android" || Platform.OS === "ios";
+  const isDesktopLayout = !isNativeMobile && width >= DESKTOP_BREAKPOINT;
+  const isTight = width < 420;
   const { currentUser, sessionToken, logoutUser } = useContext(AuthContext);
   const [menuVisible, setMenuVisible] = useState(false);
   const menuAnim = useRef(new Animated.Value(0)).current;
@@ -32,26 +45,34 @@ const AuthHeaderActions = () => {
     }
   };
 
-  const openMenu = () => {
+  const openMenu = useCallback(() => {
     setMenuVisible(true);
     Animated.timing(menuAnim, {
       toValue: 1,
       duration: 180,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  };
+  }, [menuAnim]);
 
-  const closeMenu = () => {
+  const closeMenu = useCallback(() => {
     Animated.timing(menuAnim, {
       toValue: 0,
       duration: 140,
+      easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) {
         setMenuVisible(false);
       }
     });
-  };
+  }, [menuAnim]);
+
+  useEffect(() => {
+    if (menuVisible && isDesktopLayout) {
+      closeMenu();
+    }
+  }, [closeMenu, isDesktopLayout, menuVisible]);
 
   const handleAvatarPress = () => {
     if (menuVisible) {
@@ -92,13 +113,13 @@ const AuthHeaderActions = () => {
 
   if (!sessionToken) {
     return (
-      <View style={[styles.container, isCompact && styles.containerCompact]}>
-        {isCompact ? (
+      <View style={[styles.container, isTight && styles.containerCompact]}>
+        {!isDesktopLayout ? (
           <>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleAvatarPress}
-              style={[styles.menuButton, styles.menuButtonCompact]}
+              style={[styles.menuButton, isTight && styles.menuButtonCompact]}
             >
               <Text style={styles.menuButtonText}>☰</Text>
             </TouchableOpacity>
@@ -147,12 +168,12 @@ const AuthHeaderActions = () => {
   }
 
   return (
-    <View style={[styles.container, isCompact && styles.containerCompact]}>
-      {isCompact ? (
+    <View style={[styles.container, isTight && styles.containerCompact]}>
+      {!isDesktopLayout ? (
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleAvatarPress}
-          style={[styles.menuButton, styles.menuButtonCompact]}
+          style={[styles.menuButton, isTight && styles.menuButtonCompact]}
         >
           <Text style={styles.menuButtonText}>☰</Text>
         </TouchableOpacity>
@@ -160,9 +181,9 @@ const AuthHeaderActions = () => {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleAvatarPress}
-          style={[styles.avatarButton, isCompact && styles.avatarButtonCompact]}
+          style={[styles.avatarButton, isTight && styles.avatarButtonCompact]}
         >
-          <Text style={[styles.avatarText, isCompact && styles.avatarTextCompact]}>
+          <Text style={[styles.avatarText, isTight && styles.avatarTextCompact]}>
             {displayName.slice(0, 1).toUpperCase() || "🪐"}
           </Text>
         </TouchableOpacity>
