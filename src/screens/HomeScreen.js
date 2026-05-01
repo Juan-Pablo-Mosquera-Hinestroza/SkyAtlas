@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useMemo,
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   FlatList,
@@ -18,9 +12,9 @@ import {
   Alert,
   TextInput,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Pressable,
-  Share,
 } from "react-native";
 
 import EventCard from "../components/EventCard";
@@ -35,6 +29,38 @@ import {
 } from "../utils/helpers";
 
 const AI_ROBOT_ICON_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAD6klEQVR4nO2YTWxVVRDHf6VFWrsqKjSQFEoXBSX1I6GKyseCYgVsF8ZEQ1QWaFyZblxAEZAQjW4KdA8UwsZVRT4iX4mWbiCR2kKBWIiLQjAtXYIkJDWT/G8yudz33r2Pvmsb7z85yc3/nDNz5twzc2YOZMiQIUOGDBn+X5gFrAA+A74BDgBHgRNAPzAM3ALuARNqD4FJtX8cf09jhzX3hGSZzD3A50CzdE4Z5gBfAaNuUWm1O9Jta3gqNALXnODbwCFgF/Al8DGwCXgLeAlYAtQCNWqVTlal42s19kXN3SRZJnOndNx2eu3PLS3WCFMy5gS1AmWki3fcRo5psxLhWeCGBNj5rS7NOmOv5bjWcjPpWrZr4mDoeJQD64EdwD6gB/gJ+A0YKuDsDyOcfUhzTcZhoAvoBFqkK4Ct4Q/JMd0F0R9ytrWuz870lRQdfQBocPrXhPov5jPEDxxxfIX8xPg/ge+ADuBToA1YBSyXsfOcU/toM8fx8zR2uea2SZbJ/FY6JnW8TXeAm6E1xjLEjk2Ad8VdT8lfqt3GbXT8wWIMMT8JsEuc7VZa2Cudux23rRhD3nf8MXFbYvhVX4xFxpnzifpMd4APijHkZcdfFreywJyCChLMeUP8Jce9Wowhixz/VwRXakPqxJvuAAuKMWSu4+9HcKU2pEa86Q7wXDGGPOP4RxFcgL7QPLvgCiHOnNnqM90+mpXMkFKhIsKQiriG+J2y3xhgPIIrNWoijhZy/lh//k5CZy8V6iKcPRF+l4BXIsLvmzFlhH0g6T2TK/wmwqmEF2JSQ+IEg1wXouEs8AsxsD8iRdk5TVKUBrch9YUEfKGBVh+Ek8YbKSaN1yOSxs3OkI8KCWnWQEulA5S7knPEpfF21NpVKzQpNV/o0vUqJ6PK8Qs1tklz2yWrQ7JHpGs4lMZ3O0Ps5OTFLFVw4cKq3gWCNNoVGevhH0Ksei2Izjyl7jr1d+n49QK/auwthe+gpH2Qo9S9q7GDoVJ3n0rZllCpa1gtOaPuiohKYp8o+IPC5uR//PiAno+GXRD6Wt9XVW3mxTLgb00wx9uQ8nNQGfA68INLWgfka1XuMWJcY5rzra9Rv3/S3bI97oHOYv17wNuuZl+Qw9krHF8jn2vSA12riiZ/CV8I+UxvKEV6wT0TBe1cvp2pVDQJ0pRSNvOfAOdDfeZHzz+NIf5XvwZsdY/YR4CfdZNflQOP5nD2x46f0MYMquw9DfyoO8zra9axGY84WsFJsb7v9cCe9ktoYsx3zt6Z1NmnG1a58Hs3bvidrriW9EKcruh2htiFPGOx2RnyITMYS5whi5nhOBO3sMqQganDv28GHY36aKptAAAAAElFTkSuQmCC";
+
+const pad2 = (value) => String(value).padStart(2, "0");
+
+const formatClockTime = (timestamp) => {
+  const d = new Date(timestamp);
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
+
+const isSameDay = (aTs, bTs) => {
+  const a = new Date(aTs);
+  const b = new Date(bTs);
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+};
+
+const getDayLabel = (timestamp) => {
+  const d = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (isSameDay(d.getTime(), today.getTime())) return "Hoy";
+  if (isSameDay(d.getTime(), yesterday.getTime())) return "Ayer";
+
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+const createMessageId = () =>
+  `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const normalizeText = (value) => {
   return value
@@ -73,42 +99,24 @@ const formatEventLine = (event) => {
   return `${event.image} ${event.title} — ${formatDate(event.date)}${daysText}`;
 };
 
-const formatTime = (date) =>
-  date.toLocaleTimeString("es-ES", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-const formatDateLabel = (date) =>
-  date.toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-
-const createMessage = (type, text, status = "received") => ({
-  id: `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  type,
-  text,
-  timestamp: new Date(),
-  status,
-});
-
-const initialBotMessage = createMessage(
-  "bot",
-  '¡Hola! Soy Astro-IA. Pregúntame por eclipses, meteoros, la Luna o recomendaciones astronómicas.',
-);
-
 const HomeScreen = ({ navigation }) => {
   const { width } = useWindowDimensions();
   const isSmallScreen = width < 380;
 
   const [aiInput, setAiInput] = useState("");
-  const [messages, setMessages] = useState([initialBotMessage]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [isAiOpen, setIsAiOpen] = useState(false);
-  const [isBotTyping, setIsBotTyping] = useState(false);
+  const [isAiTyping, setIsAiTyping] = useState(false);
+  const typingTimerRef = useRef(null);
   const chatListRef = useRef(null);
+  const [chatMessages, setChatMessages] = useState(() => [
+    {
+      id: "bot-welcome",
+      role: "bot",
+      text: 'Escribe algo como: "recomiéndame un evento", "próximo eclipse" o "eventos en abril".',
+      timestamp: Date.now(),
+      delivery: "received",
+    },
+  ]);
 
   const platformName = useMemo(
     () => (Platform.OS === "ios" ? "iOS" : "Android"),
@@ -218,58 +226,62 @@ const HomeScreen = ({ navigation }) => {
     [upcomingEvents],
   );
 
-  const filteredMessages = useMemo(() => {
-    const query = normalizeText(searchQuery.trim());
-    if (!query) return messages;
-    return messages.filter((message) =>
-      normalizeText(message.text).includes(query),
-    );
-  }, [messages, searchQuery]);
-
-  useEffect(() => {
-    if (chatListRef.current && messages.length > 0) {
-      chatListRef.current.scrollToEnd({ animated: true });
-    }
-  }, [messages, isAiOpen]);
-
   const handleAiSend = useCallback(() => {
     const question = aiInput.trim();
-    if (!question) return;
 
-    const userMessage = createMessage("user", question, "sent");
-    setMessages((prev) => [...prev, userMessage]);
+    if (!question) {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId(),
+          role: "bot",
+          text: "Escribe una pregunta (por ejemplo: \"próximo eclipse\").",
+          timestamp: Date.now(),
+          delivery: "received",
+        },
+      ]);
+      Keyboard.dismiss();
+      return;
+    }
+
+    const now = Date.now();
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: createMessageId(),
+        role: "user",
+        text: question,
+        timestamp: now,
+        delivery: "sent",
+      },
+    ]);
     setAiInput("");
     Keyboard.dismiss();
-    setIsBotTyping(true);
 
-    const answerText = generateAiAnswer(question);
-    setTimeout(() => {
-      const botMessage = createMessage("bot", answerText, "received");
-      setMessages((prev) => [...prev, botMessage]);
-      setIsBotTyping(false);
-    }, 700);
-  }, [aiInput, generateAiAnswer]);
-
-  const handleAiQuickFill = useCallback((text) => {
-    setAiInput(text);
-  }, []);
-
-  const handleExportConversation = useCallback(async () => {
-    const transcript = messages
-      .map((message) => {
-        const prefix = message.type === "user" ? "Tú" : "Astro-IA";
-        return `${prefix} (${formatTime(message.timestamp)}): ${message.text}`;
-      })
-      .join("\n\n");
-
-    try {
-      await Share.share({
-        message: transcript,
-      });
-    } catch (error) {
-      Alert.alert("Exportar", "No se pudo exportar la conversación.");
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
     }
-  }, [messages]);
+
+    setIsAiTyping(true);
+    const answer = generateAiAnswer(question);
+    const delayMs = Math.min(900, Math.max(350, answer.length * 10));
+
+    typingTimerRef.current = setTimeout(() => {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: createMessageId(),
+          role: "bot",
+          text: answer,
+          timestamp: Date.now(),
+          delivery: "received",
+        },
+      ]);
+      setIsAiTyping(false);
+      typingTimerRef.current = null;
+    }, delayMs);
+  }, [aiInput, generateAiAnswer]);
 
   const handleAiOpen = useCallback(() => {
     setIsAiOpen(true);
@@ -278,70 +290,23 @@ const HomeScreen = ({ navigation }) => {
   const handleAiClose = useCallback(() => {
     setIsAiOpen(false);
     Keyboard.dismiss();
+
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    setIsAiTyping(false);
   }, []);
 
-  const renderChatItem = useCallback(
-    ({ item, index }) => {
-      const previous = filteredMessages[index - 1];
-      const showDateDivider =
-        !previous ||
-        item.timestamp.toDateString() !== previous.timestamp.toDateString();
-      const isUser = item.type === "user";
+  useEffect(() => {
+    if (!isAiOpen) return;
 
-      return (
-        <>
-          {showDateDivider && (
-            <View style={styles.dateDivider}>
-              <Text style={styles.dateDividerText}>
-                {formatDateLabel(item.timestamp)}
-              </Text>
-            </View>
-          )}
-          <View
-            style={[
-              styles.messageRow,
-              isUser ? styles.messageRowUser : styles.messageRowBot,
-            ]}
-          >
-            {!isUser && (
-              <View style={styles.avatarBubble}>
-                <Text style={styles.avatarText}>🤖</Text>
-              </View>
-            )}
-            <View
-              style={[
-                styles.messageBubble,
-                isUser ? styles.userBubble : styles.botBubble,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.messageText,
-                  isUser ? styles.userMessageText : styles.botMessageText,
-                ]}
-              >
-                {item.text}
-              </Text>
-              <View style={styles.messageMeta}>
-                <Text style={styles.messageTime}>
-                  {formatTime(item.timestamp)}
-                </Text>
-                {isUser && (
-                  <Text style={styles.messageStatus}>Enviado</Text>
-                )}
-              </View>
-            </View>
-            {isUser && (
-              <View style={styles.avatarBubble}>
-                <Text style={styles.avatarText}>🧑</Text>
-              </View>
-            )}
-          </View>
-        </>
-      );
-    },
-    [filteredMessages],
-  );
+    const t = setTimeout(() => {
+      chatListRef.current?.scrollToEnd?.({ animated: true });
+    }, 80);
+
+    return () => clearTimeout(t);
+  }, [chatMessages.length, isAiOpen, isAiTyping]);
 
   const handlePlatformInfoPress = useCallback(() => {
     if (Platform.OS === "android") {
@@ -482,6 +447,119 @@ const HomeScreen = ({ navigation }) => {
     [],
   );
 
+  const renderChatItem = useCallback(
+    ({ item, index }) => {
+      const prev = index > 0 ? chatMessages[index - 1] : null;
+      const showDaySeparator = !prev || !isSameDay(prev.timestamp, item.timestamp);
+      const showTimeSeparator =
+        !!prev &&
+        isSameDay(prev.timestamp, item.timestamp) &&
+        Math.abs(item.timestamp - prev.timestamp) >= 30 * 60 * 1000;
+
+      const isUser = item.role === "user";
+
+      return (
+        <View>
+          {showDaySeparator && (
+            <View style={styles.chatSeparatorRow}>
+              <View style={styles.chatSeparatorChip}>
+                <Text style={styles.chatSeparatorText}>
+                  {getDayLabel(item.timestamp)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {showTimeSeparator && (
+            <View style={styles.chatSeparatorRow}>
+              <View style={styles.chatSeparatorChip}>
+                <Text style={styles.chatSeparatorText}>
+                  {formatClockTime(item.timestamp)}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          <View style={[styles.chatRow, isUser ? styles.chatRowUser : styles.chatRowBot]}>
+            {!isUser ? (
+              <View style={styles.chatAvatarWrap}>
+                <Image
+                  source={{ uri: AI_ROBOT_ICON_URI }}
+                  style={styles.chatAvatarImage}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <View style={styles.chatAvatarSpacer} />
+            )}
+
+            <View
+              style={[
+                styles.chatBubble,
+                isUser ? styles.chatBubbleUser : styles.chatBubbleBot,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.chatBubbleText,
+                  isUser ? styles.chatBubbleTextUser : styles.chatBubbleTextBot,
+                ]}
+              >
+                {item.text}
+              </Text>
+              <Text
+                style={[
+                  styles.chatMetaText,
+                  isUser ? styles.chatMetaTextUser : styles.chatMetaTextBot,
+                ]}
+              >
+                {formatClockTime(item.timestamp)} • {isUser ? "Enviado" : "Recibido"}
+              </Text>
+            </View>
+
+            {isUser ? (
+              <View style={styles.chatAvatarWrapUser}>
+                <Text style={styles.chatAvatarUserText}>Tú</Text>
+              </View>
+            ) : (
+              <View style={styles.chatAvatarSpacer} />
+            )}
+          </View>
+        </View>
+      );
+    },
+    [chatMessages],
+  );
+
+  const chatKeyExtractor = useCallback((item) => item.id, []);
+
+  const ChatFooter = useMemo(() => {
+    if (!isAiTyping) return <View style={styles.chatFooterSpacer} />;
+
+    return (
+      <View style={styles.chatTypingRow}>
+        <View style={styles.chatAvatarWrap}>
+          <Image
+            source={{ uri: AI_ROBOT_ICON_URI }}
+            style={styles.chatAvatarImage}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={[styles.chatBubble, styles.chatBubbleBot, styles.chatTypingBubble]}>
+          <Text style={[styles.chatBubbleText, styles.chatBubbleTextBot, styles.chatTypingText]}>
+            Escribiendo…
+          </Text>
+          <Text style={[styles.chatMetaText, styles.chatMetaTextBot]}>
+            {formatClockTime(Date.now())} • …
+          </Text>
+        </View>
+
+        <View style={styles.chatAvatarSpacer} />
+      </View>
+    );
+  }, [isAiTyping]);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f0f1e" />
@@ -524,22 +602,26 @@ const HomeScreen = ({ navigation }) => {
       >
         <Pressable style={styles.aiOverlay} onPress={handleAiClose}>
           <Pressable style={styles.aiSheet} onPress={() => {}}>
-            <View style={styles.aiSheetHeader}>
-              <View>
-                <Text style={styles.aiSheetTitle}>Astro-IA</Text>
-                <Text style={styles.aiSheetSubtitle}>
-                  {isBotTyping ? "Escribiendo…" : "Historial de la conversación"}
-                </Text>
-              </View>
-              <View style={styles.aiSheetHeaderActions}>
-                <TouchableOpacity
-                  onPress={handleExportConversation}
-                  activeOpacity={0.85}
-                  style={styles.exportButton}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.exportButtonText}>Exportar</Text>
-                </TouchableOpacity>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              keyboardVerticalOffset={Platform.OS === "ios" ? 30 : 0}
+              style={styles.chatKav}
+            >
+              <View style={styles.aiSheetHeader}>
+                <View style={styles.aiHeaderLeft}>
+                  <Image
+                    source={{ uri: AI_ROBOT_ICON_URI }}
+                    style={styles.aiHeaderAvatar}
+                    resizeMode="contain"
+                  />
+                  <View>
+                    <Text style={styles.aiSheetTitle}>Astro-IA</Text>
+                    <Text style={styles.aiSheetSubtitle}>
+                      {isAiTyping ? "Escribiendo…" : "En línea"}
+                    </Text>
+                  </View>
+                </View>
+
                 <TouchableOpacity
                   onPress={handleAiClose}
                   activeOpacity={0.85}
@@ -550,100 +632,48 @@ const HomeScreen = ({ navigation }) => {
                   <Text style={styles.aiCloseButtonText}>✕</Text>
                 </TouchableOpacity>
               </View>
-            </View>
 
-            <View
-              style={[
-                styles.aiCard,
-                styles.aiCardModal,
-                isSmallScreen && styles.aiCardSmall,
-              ]}
-            >
-              <TextInput
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Buscar en el historial..."
-                placeholderTextColor="#7d86a8"
-                style={styles.aiSearchInput}
-                returnKeyType="search"
-              />
-              <View style={styles.chatContainer}>
+              <View style={styles.chatBody}>
                 <FlatList
                   ref={chatListRef}
-                  data={filteredMessages}
-                  keyExtractor={(item) => item.id}
+                  data={chatMessages}
                   renderItem={renderChatItem}
+                  keyExtractor={chatKeyExtractor}
+                  contentContainerStyle={styles.chatListContent}
                   showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.chatContent}
-                  onContentSizeChange={() => {
-                    chatListRef.current?.scrollToEnd({ animated: true });
-                  }}
-                  ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                      <Text style={styles.emptyStateText}>
-                        No hay mensajes que coincidan con tu búsqueda.
-                      </Text>
-                    </View>
-                  }
+                  ListFooterComponent={ChatFooter}
+                  onScrollBeginDrag={Keyboard.dismiss}
                 />
-                {isBotTyping && (
-                  <View style={styles.typingRow}>
-                    <View style={styles.avatarBubble}>
-                      <Text style={styles.avatarText}>🤖</Text>
-                    </View>
-                    <View style={styles.typingIndicatorBubble}>
-                      <View style={styles.typingDot} />
-                      <View style={styles.typingDot} />
-                      <View style={styles.typingDot} />
-                    </View>
-                  </View>
-                )}
-              </View>
 
-              <View style={styles.aiInputRow}>
-                <TextInput
-                  value={aiInput}
-                  onChangeText={setAiInput}
-                  placeholder="Ej: próximo eclipse, recomiéndame un evento…"
-                  placeholderTextColor="#7d86a8"
-                  style={styles.aiInput}
-                  returnKeyType="send"
-                  onSubmitEditing={handleAiSend}
-                />
-                <TouchableOpacity
-                  onPress={handleAiSend}
-                  activeOpacity={0.85}
-                  style={styles.aiButton}
-                  accessibilityRole="button"
+                <View
+                  style={[
+                    styles.chatComposer,
+                    isSmallScreen && styles.chatComposerSmall,
+                  ]}
                 >
-                  <Text style={styles.aiButtonText}>Enviar</Text>
-                </TouchableOpacity>
+                  <TextInput
+                    value={aiInput}
+                    onChangeText={setAiInput}
+                    placeholder="Mensaje…"
+                    placeholderTextColor="#7d86a8"
+                    style={styles.chatComposerInput}
+                    returnKeyType="send"
+                    onSubmitEditing={handleAiSend}
+                    editable
+                  />
+                  <TouchableOpacity
+                    onPress={handleAiSend}
+                    activeOpacity={0.85}
+                    style={styles.chatComposerSend}
+                    accessibilityRole="button"
+                    accessibilityLabel="Enviar mensaje"
+                    disabled={isAiTyping}
+                  >
+                    <Text style={styles.chatComposerSendText}>Enviar</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-
-              <View style={styles.aiQuickRow}>
-                <TouchableOpacity
-                  onPress={() => handleAiQuickFill("Recomiéndame un evento")}
-                  activeOpacity={0.85}
-                  style={styles.aiQuickChip}
-                >
-                  <Text style={styles.aiQuickChipText}>Recomendar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleAiQuickFill("Próximo eclipse")}
-                  activeOpacity={0.85}
-                  style={styles.aiQuickChip}
-                >
-                  <Text style={styles.aiQuickChipText}>Eclipse</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleAiQuickFill("Eventos en abril")}
-                  activeOpacity={0.85}
-                  style={styles.aiQuickChip}
-                >
-                  <Text style={styles.aiQuickChipText}>Abril</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            </KeyboardAvoidingView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -668,6 +698,7 @@ const styles = StyleSheet.create({
   },
   platformActions: {
     flexDirection: "column",
+    gap: 8,
     alignItems: "flex-end",
   },
   platformChip: {
@@ -774,6 +805,8 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: "#2d3459",
     paddingTop: 10,
+    height: "85%",
+    maxHeight: "85%",
   },
   aiSheetHeader: {
     paddingHorizontal: 16,
@@ -782,32 +815,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  aiSheetHeaderActions: {
+  aiHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
   },
-  aiSheetSubtitle: {
-    color: "#7d86a8",
-    fontSize: 12,
-    marginTop: 2,
-  },
-  exportButton: {
-    backgroundColor: "#1c2a46",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#2d3459",
-  },
-  exportButtonText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
+  aiHeaderAvatar: {
+    width: 30,
+    height: 30,
   },
   aiSheetTitle: {
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "900",
+  },
+  aiSheetSubtitle: {
+    color: "#a0a0b0",
+    fontSize: 11,
+    marginTop: 2,
+    fontWeight: "700",
   },
   aiCloseButton: {
     width: 34,
@@ -824,174 +850,136 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
-  aiCard: {
-    marginTop: 8,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: "#101a33",
-    borderWidth: 1,
-    borderColor: "#2d3459",
-    ...Platform.select({
-      android: {
-        elevation: 2,
-      },
-      ios: {
-        shadowColor: "#000000",
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-      },
-    }),
+  chatKav: {
+    flex: 1,
   },
-  aiCardModal: {
-    marginTop: 0,
+  chatBody: {
+    flex: 1,
+    paddingBottom: 10,
   },
-  aiCardSmall: {
-    padding: 12,
+  chatListContent: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 10,
+    gap: 10,
   },
-  aiTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 4,
-  },
-  aiSubtitle: {
-    color: "#a0a0b0",
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 10,
-  },
-  aiSearchInput: {
-    backgroundColor: "#0f1626",
-    borderColor: "#2d3459",
-    borderWidth: 1,
-    borderRadius: 14,
-    color: "#ffffff",
-    paddingHorizontal: 14,
-    paddingVertical: Platform.select({ ios: 12, android: 10 }),
-    marginBottom: 12,
-  },
-  chatContainer: {
-    maxHeight: 320,
-    minHeight: 220,
-    marginBottom: 12,
-  },
-  chatContent: {
-    paddingBottom: 8,
-  },
-  messageRow: {
+  chatRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    marginBottom: 10,
   },
-  messageRowBot: {
+  chatRowBot: {
     justifyContent: "flex-start",
   },
-  messageRowUser: {
+  chatRowUser: {
     justifyContent: "flex-end",
   },
-  avatarBubble: {
+  chatAvatarSpacer: {
     width: 36,
-    height: 36,
-    borderRadius: 18,
+  },
+  chatAvatarWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "#16213e",
+    borderWidth: 1,
+    borderColor: "#2d3459",
     alignItems: "center",
     justifyContent: "center",
-    marginHorizontal: 8,
+    marginRight: 8,
   },
-  avatarText: {
-    fontSize: 18,
+  chatAvatarImage: {
+    width: 18,
+    height: 18,
   },
-  messageBubble: {
-    maxWidth: "78%",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-  },
-  userBubble: {
+  chatAvatarWrapUser: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: "#2ecc71",
-    borderBottomRightRadius: 4,
+    borderWidth: 1,
+    borderColor: "#0f0f1e",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
   },
-  botBubble: {
+  chatAvatarUserText: {
+    color: "#0f0f1e",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  chatBubble: {
+    maxWidth: "78%",
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+  },
+  chatBubbleBot: {
+    backgroundColor: "#101a33",
+    borderColor: "#2d3459",
+    borderTopLeftRadius: 8,
+  },
+  chatBubbleUser: {
+    backgroundColor: "#2ecc71",
+    borderColor: "#0f0f1e",
+    borderTopRightRadius: 8,
+  },
+  chatBubbleText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  chatBubbleTextBot: {
+    color: "#ffffff",
+  },
+  chatBubbleTextUser: {
+    color: "#0f0f1e",
+  },
+  chatMetaText: {
+    marginTop: 6,
+    fontSize: 10,
+    fontWeight: "800",
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  chatMetaTextBot: {
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  chatMetaTextUser: {
+    color: "rgba(15, 15, 30, 0.75)",
+  },
+  chatSeparatorRow: {
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  chatSeparatorChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
     backgroundColor: "#16213e",
-    borderBottomLeftRadius: 4,
     borderWidth: 1,
     borderColor: "#2d3459",
   },
-  messageText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  userMessageText: {
-    color: "#0f0f1e",
-  },
-  botMessageText: {
-    color: "#ffffff",
-  },
-  messageMeta: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    marginTop: 6,
-  },
-  messageTime: {
-    color: "#7d86a8",
-    fontSize: 11,
-  },
-  messageStatus: {
-    color: "#7d86a8",
-    fontSize: 11,
-    marginLeft: 8,
-  },
-  dateDivider: {
-    alignSelf: "center",
-    backgroundColor: "#16213e",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 10,
-  },
-  dateDividerText: {
+  chatSeparatorText: {
     color: "#a0a0b0",
-    fontSize: 12,
-    textTransform: "capitalize",
+    fontSize: 11,
+    fontWeight: "800",
   },
-  emptyState: {
-    padding: 22,
-    alignItems: "center",
-  },
-  emptyStateText: {
-    color: "#7d86a8",
-    fontSize: 13,
-    textAlign: "center",
-  },
-  typingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  typingIndicatorBubble: {
-    flexDirection: "row",
-    backgroundColor: "#16213e",
+  chatComposer: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-  },
-  typingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#2ecc71",
-    marginHorizontal: 3,
-  },
-  aiInputRow: {
+    paddingTop: 10,
     flexDirection: "row",
+    gap: 10,
     alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#2d3459",
   },
-  aiInput: {
+  chatComposerSmall: {
+    gap: 8,
+  },
+  chatComposerInput: {
     flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
     backgroundColor: "#0f0f1e",
     borderWidth: 1,
     borderColor: "#2d3459",
@@ -1001,53 +989,31 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 13,
   },
-  aiButton: {
+  chatComposerSend: {
+    height: 40,
     backgroundColor: "#2ecc71",
     paddingHorizontal: 14,
-    paddingVertical: 10,
     borderRadius: 12,
-    marginLeft: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  aiButtonText: {
+  chatComposerSendText: {
     color: "#0f0f1e",
     fontWeight: "900",
     fontSize: 12,
   },
-  aiQuickRow: {
+  chatFooterSpacer: {
+    height: 2,
+  },
+  chatTypingRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 10,
+    alignItems: "flex-end",
   },
-  aiQuickChip: {
-    borderWidth: 1,
-    borderColor: "#2d3459",
-    backgroundColor: "#16213e",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    marginRight: 8,
-    marginBottom: 8,
+  chatTypingBubble: {
+    opacity: 0.9,
   },
-  aiQuickChipText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  aiAnswerBox: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#2d3459",
-    paddingTop: 10,
-  },
-  aiQuestionText: {
-    color: "#a0a0b0",
-    fontSize: 12,
-    marginBottom: 6,
-  },
-  aiAnswerText: {
-    color: "#ffffff",
-    fontSize: 13,
-    lineHeight: 18,
+  chatTypingText: {
+    fontStyle: "italic",
   },
   separator: {
     height: 4,
