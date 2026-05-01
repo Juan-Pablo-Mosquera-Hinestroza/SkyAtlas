@@ -16,7 +16,7 @@ const AuthHeaderActions = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { width } = useWindowDimensions();
-  const isCompact = width < 380;
+  const isCompact = width < 420;
   const { currentUser, sessionToken, logoutUser } = useContext(AuthContext);
   const [menuVisible, setMenuVisible] = useState(false);
   const menuAnim = useRef(new Animated.Value(0)).current;
@@ -66,6 +66,16 @@ const AuthHeaderActions = () => {
     handleNavigate("Profile");
   };
 
+  const handleGoLogin = () => {
+    closeMenu();
+    handleNavigate("Login");
+  };
+
+  const handleGoRegister = () => {
+    closeMenu();
+    handleNavigate("Register");
+  };
+
   const handleLogout = () => {
     closeMenu();
     logoutUser();
@@ -83,45 +93,80 @@ const AuthHeaderActions = () => {
   if (!sessionToken) {
     return (
       <View style={[styles.container, isCompact && styles.containerCompact]}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => handleNavigate("Login")}
-          style={[styles.button, styles.loginButton, isCompact && styles.buttonCompact]}
-        >
-          <Text style={[styles.buttonText, isCompact && styles.buttonTextCompact]}>
-            Iniciar sesion
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => handleNavigate("Register")}
-          style={[styles.button, styles.registerButton, isCompact && styles.buttonCompact]}
-        >
-          <Text
-            style={[
-              styles.buttonText,
-              styles.registerText,
-              isCompact && styles.buttonTextCompact,
-            ]}
-          >
-            Registrarse
-          </Text>
-        </TouchableOpacity>
+        {isCompact ? (
+          <>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleAvatarPress}
+              style={[styles.menuButton, styles.menuButtonCompact]}
+            >
+              <Text style={styles.menuButtonText}>☰</Text>
+            </TouchableOpacity>
+            <Modal
+              animationType="none"
+              transparent
+              visible={menuVisible}
+              onRequestClose={closeMenu}
+            >
+              <Pressable style={styles.menuOverlay} onPress={closeMenu}>
+                <Animated.View style={[styles.menuCard, menuStyle]}>
+                  <Text style={styles.menuName}>Cuenta</Text>
+                  <View style={styles.menuDivider} />
+                  <Pressable style={styles.menuItem} onPress={handleGoLogin}>
+                    <Text style={styles.menuItemText}>Iniciar sesion</Text>
+                  </Pressable>
+                  <Pressable style={styles.menuItem} onPress={handleGoRegister}>
+                    <Text style={styles.menuItemText}>Registrarse</Text>
+                  </Pressable>
+                </Animated.View>
+              </Pressable>
+            </Modal>
+          </>
+        ) : (
+          <>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => handleNavigate("Login")}
+              style={[styles.button, styles.loginButton]}
+            >
+              <Text style={styles.buttonText}>Iniciar sesion</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => handleNavigate("Register")}
+              style={[styles.button, styles.registerButton]}
+            >
+              <Text style={[styles.buttonText, styles.registerText]}>
+                Registrarse
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     );
   }
 
   return (
     <View style={[styles.container, isCompact && styles.containerCompact]}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={handleAvatarPress}
-        style={[styles.avatarButton, isCompact && styles.avatarButtonCompact]}
-      >
-        <Text style={[styles.avatarText, isCompact && styles.avatarTextCompact]}>
-          {displayName.slice(0, 1).toUpperCase() || "🪐"}
-        </Text>
-      </TouchableOpacity>
+      {isCompact ? (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleAvatarPress}
+          style={[styles.menuButton, styles.menuButtonCompact]}
+        >
+          <Text style={styles.menuButtonText}>☰</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handleAvatarPress}
+          style={[styles.avatarButton, isCompact && styles.avatarButtonCompact]}
+        >
+          <Text style={[styles.avatarText, isCompact && styles.avatarTextCompact]}>
+            {displayName.slice(0, 1).toUpperCase() || "🪐"}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <Modal
         animationType="none"
@@ -209,6 +254,26 @@ const styles = StyleSheet.create({
   },
   buttonTextCompact: {
     fontSize: 11,
+  },
+  menuButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuButtonCompact: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  menuButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
   },
   registerText: {
     letterSpacing: 0.2,

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react";
+import React, { useCallback, useContext, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import InfoRow from "../components/InfoRow";
+import { AuthContext } from "../context/AuthContext";
 
 const DetailsScreen = ({ route, navigation }) => {
   const { event } = route.params;
@@ -19,17 +20,28 @@ const DetailsScreen = ({ route, navigation }) => {
   const isShortScreen = height < 700;
   const isAndroid = Platform.OS === "android";
   const accentColor = isAndroid ? "#2ecc71" : "#4a90e2";
+  const { sessionToken } = useContext(AuthContext);
 
   // useCallback para memorizar la función de navegación
   const handleGoToProfile = useCallback(() => {
-    navigation.navigate("Profile", {
+    const eventPayload = {
       eventName: event.title,
       eventType: event.type,
       eventDate: event.date,
       difficulty: event.difficulty,
       equipment: event.equipment,
-    });
-  }, [navigation, event]);
+    };
+
+    if (!sessionToken) {
+      navigation.navigate("Login", {
+        redirectTo: "Profile",
+        eventPayload,
+      });
+      return;
+    }
+
+    navigation.navigate("Profile", eventPayload);
+  }, [navigation, event, sessionToken]);
 
   // Memorizar el estilo del icono basado en el tamaño de pantalla
   const iconSize = useMemo(() => (isSmallScreen ? 60 : 80), [isSmallScreen]);

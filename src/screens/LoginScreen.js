@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { AuthContext } from "../context/AuthContext";
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = ({ navigation, route }) => {
 	const { width } = useWindowDimensions();
 	const isSmall = width < 380;
 	const { loginUser, isBusy } = useContext(AuthContext);
@@ -50,6 +50,20 @@ const LoginScreen = ({ navigation }) => {
 		}
 
 		setFeedback({ type: "success", message: "Sesion iniciada." });
+
+		if (route?.params?.redirectTo) {
+			navigation.reset({
+				index: 0,
+				routes: [
+					{
+						name: route.params.redirectTo,
+						params: route.params.eventPayload,
+					},
+				],
+			});
+			return;
+		}
+
 		navigation.reset({ index: 0, routes: [{ name: "Home" }] });
 	};
 
