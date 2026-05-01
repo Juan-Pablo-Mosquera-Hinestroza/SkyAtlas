@@ -31,7 +31,11 @@ const AppNavigator = () => {
             backgroundColor: "#0f0f1e",
           },
           headerRight:
-            route.name === "Profile" ? undefined : () => <AuthHeaderActions />,
+            route.name === "Profile" ||
+            route.name === "Login" ||
+            route.name === "Register"
+              ? undefined
+              : () => <AuthHeaderActions />,
         })}
       >
         <Stack.Screen

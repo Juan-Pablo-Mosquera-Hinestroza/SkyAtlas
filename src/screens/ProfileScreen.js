@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useContext, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,11 @@ import {
 } from "react-native";
 
 import InfoRow from "../components/InfoRow";
+import { AuthContext } from "../context/AuthContext";
 
 const ProfileScreen = ({ route }) => {
   const { width, height } = useWindowDimensions();
+  const { currentUser } = useContext(AuthContext);
 
   // Lógica de responsividad
   const isSmallScreen = width < 380;
@@ -22,7 +24,7 @@ const ProfileScreen = ({ route }) => {
   // Datos del observador (simulados)
   const observerData = useMemo(
     () => ({
-      name: "Astro Observador",
+      name: currentUser?.name || currentUser?.username || "Astro Observador",
       level: "Avanzado",
       eventsObserved: 47,
       favoriteType: "Lluvia de Meteoros",
@@ -30,7 +32,7 @@ const ProfileScreen = ({ route }) => {
       location: "Hemisferio Norte",
       experience: "3 años",
     }),
-    [],
+    [currentUser],
   );
 
   // Obtener datos del evento desde route params (si existen)

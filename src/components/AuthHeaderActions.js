@@ -1,12 +1,30 @@
-import React from "react";
-import { View, TouchableOpacity, Text, StyleSheet, useWindowDimensions } from "react-native";
+import React, { useContext, useMemo, useRef, useState } from "react";
+import {
+  View,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  useWindowDimensions,
+  Modal,
+  Pressable,
+  Animated,
+} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
+import { AuthContext } from "../context/AuthContext";
 
 const AuthHeaderActions = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { width } = useWindowDimensions();
   const isCompact = width < 380;
+  const { currentUser, sessionToken, logoutUser } = useContext(AuthContext);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const menuAnim = useRef(new Animated.Value(0)).current;
+
+  const displayName = useMemo(() => {
+    if (!currentUser) return "";
+    return currentUser.name || currentUser.username || "Observador";
+  }, [currentUser]);
 
   const handleNavigate = (target) => {
     if (route.name !== target) {
@@ -14,26 +32,118 @@ const AuthHeaderActions = () => {
     }
   };
 
+  const openMenu = () => {
+    setMenuVisible(true);
+    Animated.timing(menuAnim, {
+      toValue: 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeMenu = () => {
+    Animated.timing(menuAnim, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        setMenuVisible(false);
+      }
+    });
+  };
+
+  const handleAvatarPress = () => {
+    if (menuVisible) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  };
+
+  const handleGoProfile = () => {
+    closeMenu();
+    handleNavigate("Profile");
+  };
+
+  const handleLogout = () => {
+    closeMenu();
+    logoutUser();
+    handleNavigate("Home");
+  };
+
+  const menuStyle = {
+    opacity: menuAnim,
+    transform: [
+      { scale: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
+      { translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] }) },
+    ],
+  };
+
+  if (!sessionToken) {
+    return (
+      <View style={[styles.container, isCompact && styles.containerCompact]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => handleNavigate("Login")}
+          style={[styles.button, styles.loginButton, isCompact && styles.buttonCompact]}
+        >
+          <Text style={[styles.buttonText, isCompact && styles.buttonTextCompact]}>
+            Iniciar sesion
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => handleNavigate("Register")}
+          style={[styles.button, styles.registerButton, isCompact && styles.buttonCompact]}
+        >
+          <Text
+            style={[
+              styles.buttonText,
+              styles.registerText,
+              isCompact && styles.buttonTextCompact,
+            ]}
+          >
+            Registrarse
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, isCompact && styles.containerCompact]}>
       <TouchableOpacity
         activeOpacity={0.85}
-        onPress={() => handleNavigate("Login")}
-        style={[styles.button, styles.loginButton, isCompact && styles.buttonCompact]}
+        onPress={handleAvatarPress}
+        style={[styles.avatarButton, isCompact && styles.avatarButtonCompact]}
       >
-        <Text style={[styles.buttonText, isCompact && styles.buttonTextCompact]}>
-          Iniciar sesion
+        <Text style={[styles.avatarText, isCompact && styles.avatarTextCompact]}>
+          {displayName.slice(0, 1).toUpperCase() || "🪐"}
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => handleNavigate("Register")}
-        style={[styles.button, styles.registerButton, isCompact && styles.buttonCompact]}
+
+      <Modal
+        animationType="none"
+        transparent
+        visible={menuVisible}
+        onRequestClose={closeMenu}
       >
-        <Text style={[styles.buttonText, styles.registerText, isCompact && styles.buttonTextCompact]}>
-          Registrarse
-        </Text>
-      </TouchableOpacity>
+        <Pressable style={styles.menuOverlay} onPress={closeMenu}>
+          <Animated.View style={[styles.menuCard, menuStyle]}>
+            <Text style={styles.menuName}>{displayName}</Text>
+            <View style={styles.menuDivider} />
+            <Pressable style={styles.menuItem} onPress={handleGoProfile}>
+              <Text style={styles.menuItemText}>Ir a perfil</Text>
+            </Pressable>
+            <Pressable style={styles.menuItem} onPress={handleLogout}>
+              <Text style={[styles.menuItemText, styles.menuLogout]}>
+                Cerrar sesion
+              </Text>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -46,6 +156,29 @@ const styles = StyleSheet.create({
   },
   containerCompact: {
     gap: 6,
+  },
+  avatarButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarButtonCompact: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  avatarText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  avatarTextCompact: {
+    fontSize: 12,
   },
   button: {
     borderRadius: 999,
@@ -79,6 +212,50 @@ const styles = StyleSheet.create({
   },
   registerText: {
     letterSpacing: 0.2,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(10, 10, 20, 0.35)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    paddingTop: 64,
+    paddingRight: 12,
+  },
+  menuCard: {
+    width: 180,
+    backgroundColor: "#121629",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  menuName: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    marginBottom: 8,
+  },
+  menuItem: {
+    paddingVertical: 8,
+  },
+  menuItemText: {
+    color: "#cfd3ff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  menuLogout: {
+    color: "#ff7a7a",
   },
 });
 

@@ -1,0 +1,34 @@
+[
+	{
+		"id": "seed-1",
+		"name": "Alexandra Marroquin",
+		"email": "alexa@gmail.com",
+		"username": "Alexandra",
+		"password": "Sky123",
+		"createdAt": "2026-04-30T00:00:00.000Z"
+	},
+	{
+		"id": "seed-2",
+		"name": "Samuel David Montenegro",
+		"email": "samu@gmail.com",
+		"username": "Samuel",
+		"password": "Sky123",
+		"createdAt": "2026-04-30T00:00:00.000Z"
+	},
+	{
+		"id": "seed-3",
+		"name": "Lina Vanesa Mena",
+		"email": "lina@gmail.com",
+		"username": "Vanesa",
+		"password": "Sky123",
+		"createdAt": "2026-04-30T00:00:00.000Z"
+	},
+	{
+		"id": "seed-4",
+		"name": "Juan Pablo Mosquera",
+		"email": "pablo@gmail.com",
+		"username": "Pablo",
+		"password": "Sky123",
+		"createdAt": "2026-04-30T00:00:00.000Z"
+	}
+]
