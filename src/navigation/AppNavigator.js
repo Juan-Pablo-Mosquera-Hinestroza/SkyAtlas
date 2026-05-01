@@ -7,6 +7,9 @@ import HomeScreen from "../screens/HomeScreen";
 import DetailsScreen from "../screens/DetailsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import PlatformDifferencesScreen from "../screens/PlatformDifferencesScreen";
+import LoginScreen from "../screens/LoginScreen";
+import RegisterScreen from "../screens/RegisterScreen";
+import AuthHeaderActions from "../components/AuthHeaderActions";
 
 const Stack = createNativeStackNavigator();
 
@@ -15,7 +18,7 @@ const AppNavigator = () => {
     <NavigationContainer>
       <Stack.Navigator
         initialRouteName="Home"
-        screenOptions={{
+        screenOptions={({ route }) => ({
           headerStyle: {
             backgroundColor: "#0f0f1e",
           },
@@ -27,7 +30,9 @@ const AppNavigator = () => {
           contentStyle: {
             backgroundColor: "#0f0f1e",
           },
-        }}
+          headerRight:
+            route.name === "Profile" ? undefined : () => <AuthHeaderActions />,
+        })}
       >
         <Stack.Screen
           name="Home"
@@ -59,6 +64,20 @@ const AppNavigator = () => {
           component={PlatformDifferencesScreen}
           options={{
             title: "Android vs iOS",
+          }}
+        />
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{
+            title: "Iniciar sesion",
+          }}
+        />
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={{
+            title: "Registrarse",
           }}
         />
       </Stack.Navigator>
