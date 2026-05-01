@@ -3,13 +3,27 @@
  * Funciones helper para manipulación de fechas, filtrado y formateo
  */
 
+const parseDateOnly = (dateString) => {
+  if (typeof dateString !== "string") {
+    return new Date(dateString);
+  }
+
+  // Evita el desfase por zona horaria: `new Date('YYYY-MM-DD')` se interpreta en UTC.
+  // Con `T00:00:00` se interpreta como hora local.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return new Date(`${dateString}T00:00:00`);
+  }
+
+  return new Date(dateString);
+};
+
 /**
  * Formatea una fecha en formato legible
  * @param {string} dateString - Fecha en formato 'YYYY-MM-DD'
  * @returns {string} Fecha formateada
  */
 export const formatDate = (dateString) => {
-  const date = new Date(dateString);
+  const date = parseDateOnly(dateString);
   const options = { year: "numeric", month: "long", day: "numeric" };
   return date.toLocaleDateString("es-ES", options);
 };
@@ -21,7 +35,7 @@ export const formatDate = (dateString) => {
  */
 export const getDaysUntilEvent = (eventDate) => {
   const today = new Date();
-  const event = new Date(eventDate);
+  const event = parseDateOnly(eventDate);
   const diffTime = event - today;
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
@@ -65,8 +79,8 @@ export const filterByDifficulty = (events, difficulty) => {
  */
 export const sortByDate = (events, order = "asc") => {
   return [...events].sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
+    const dateA = parseDateOnly(a.date);
+    const dateB = parseDateOnly(b.date);
     return order === "asc" ? dateA - dateB : dateB - dateA;
   });
 };
@@ -82,7 +96,7 @@ export const getEventsThisMonth = (events) => {
   const currentYear = now.getFullYear();
 
   return events.filter((event) => {
-    const eventDate = new Date(event.date);
+    const eventDate = parseDateOnly(event.date);
     return (
       eventDate.getMonth() === currentMonth &&
       eventDate.getFullYear() === currentYear
@@ -117,7 +131,7 @@ export const getEventColor = (type) => {
  * @returns {boolean}
  */
 export const isFutureDate = (dateString) => {
-  const date = new Date(dateString);
+  const date = parseDateOnly(dateString);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return date >= today;
