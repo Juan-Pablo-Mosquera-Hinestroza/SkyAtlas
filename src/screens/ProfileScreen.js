@@ -6,12 +6,13 @@ import {
   StyleSheet,
   StatusBar,
   useWindowDimensions,
+  TouchableOpacity,
 } from "react-native";
 
 import InfoRow from "../components/InfoRow";
 import { AuthContext } from "../context/AuthContext";
 
-const ProfileScreen = ({ route }) => {
+const ProfileScreen = ({ route, navigation }) => {
   const { width, height } = useWindowDimensions();
   const { currentUser } = useContext(AuthContext);
 
@@ -338,6 +339,33 @@ const ProfileScreen = ({ route }) => {
             </Text>
           </View>
         )}
+
+        <View style={[styles.section, isSmallScreen && styles.sectionSmall]}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              isSmallScreen && styles.sectionTitleSmall,
+            ]}
+          >
+            ❓ Ayuda rápida
+          </Text>
+          <Text style={[styles.helpText, isSmallScreen && styles.helpTextSmall]}>
+            ¿Quieres repasar cómo usar SKYATLAS? Puedes reabrir el tutorial inicial
+            cuando quieras.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate("Home", { forceTutorial: true })}
+            style={[
+              styles.helpButton,
+              isSmallScreen && styles.helpButtonSmall,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Reabrir tutorial"
+          >
+            <Text style={styles.helpButtonText}>Reabrir tutorial</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -418,6 +446,32 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
+  },
+  helpText: {
+    color: "#a0a0b0",
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+    marginBottom: 12,
+    fontWeight: "600",
+  },
+  helpTextSmall: {
+    fontSize: 12,
+  },
+  helpButton: {
+    backgroundColor: "#4a90e2",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+  },
+  helpButtonSmall: {
+    paddingVertical: 10,
+  },
+  helpButtonText: {
+    color: "#ffffff",
+    fontWeight: "800",
+    fontSize: 13,
   },
   sectionSmall: {
     marginBottom: 16,

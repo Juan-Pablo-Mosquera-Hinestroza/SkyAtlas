@@ -19,6 +19,7 @@ import {
 
 import EventCard from "../components/EventCard";
 import Header from "../components/Header";
+import TutorialOverlay from "../components/TutorialOverlay";
 import { astronomicalEvents } from "../data/astronomicalEvents";
 import {
   formatDate,
@@ -27,8 +28,11 @@ import {
   searchEvents,
   sortByDate,
 } from "../utils/helpers";
+import { hasSeenTutorial, setHasSeenTutorial } from "../utils/tutorialStore";
 
 const AI_ROBOT_ICON_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAD6klEQVR4nO2YTWxVVRDHf6VFWrsqKjSQFEoXBSX1I6GKyseCYgVsF8ZEQ1QWaFyZblxAEZAQjW4KdA8UwsZVRT4iX4mWbiCR2kKBWIiLQjAtXYIkJDWT/G8yudz33r2Pvmsb7z85yc3/nDNz5twzc2YOZMiQIUOGDBn+X5gFrAA+A74BDgBHgRNAPzAM3ALuARNqD4FJtX8cf09jhzX3hGSZzD3A50CzdE4Z5gBfAaNuUWm1O9Jta3gqNALXnODbwCFgF/Al8DGwCXgLeAlYAtQCNWqVTlal42s19kXN3SRZJnOndNx2eu3PLS3WCFMy5gS1AmWki3fcRo5psxLhWeCGBNj5rS7NOmOv5bjWcjPpWrZr4mDoeJQD64EdwD6gB/gJ+A0YKuDsDyOcfUhzTcZhoAvoBFqkK4Ct4Q/JMd0F0R9ytrWuz870lRQdfQBocPrXhPov5jPEDxxxfIX8xPg/ge+ADuBToA1YBSyXsfOcU/toM8fx8zR2uea2SZbJ/FY6JnW8TXeAm6E1xjLEjk2Ad8VdT8lfqt3GbXT8wWIMMT8JsEuc7VZa2Cudux23rRhD3nf8MXFbYvhVX4xFxpnzifpMd4APijHkZcdfFreywJyCChLMeUP8Jce9Wowhixz/VwRXakPqxJvuAAuKMWSu4+9HcKU2pEa86Q7wXDGGPOP4RxFcgL7QPLvgCiHOnNnqM90+mpXMkFKhIsKQiriG+J2y3xhgPIIrNWoijhZy/lh//k5CZy8V6iKcPRF+l4BXIsLvmzFlhH0g6T2TK/wmwqmEF2JSQ+IEg1wXouEs8AsxsD8iRdk5TVKUBrch9YUEfKGBVh+Ek8YbKSaN1yOSxs3OkI8KCWnWQEulA5S7knPEpfF21NpVKzQpNV/o0vUqJ6PK8Qs1tklz2yWrQ7JHpGs4lMZ3O0Ps5OTFLFVw4cKq3gWCNNoVGevhH0Ksei2Izjyl7jr1d+n49QK/auwthe+gpH2Qo9S9q7GDoVJ3n0rZllCpa1gtOaPuiohKYp8o+IPC5uR//PiAno+GXRD6Wt9XVW3mxTLgb00wx9uQ8nNQGfA68INLWgfka1XuMWJcY5rzra9Rv3/S3bI97oHOYv17wNuuZl+Qw9krHF8jn2vSA12riiZ/CV8I+UxvKEV6wT0TBe1cvp2pVDQJ0pRSNvOfAOdDfeZHzz+NIf5XvwZsdY/YR4CfdZNflQOP5nD2x46f0MYMquw9DfyoO8zra9axGY84WsFJsb7v9cCe9ktoYsx3zt6Z1NmnG1a58Hs3bvidrriW9EKcruh2htiFPGOx2RnyITMYS5whi5nhOBO3sMqQganDv28GHY36aKptAAAAAElFTkSuQmCC";
+
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 const pad2 = (value) => String(value).padStart(2, "0");
 
@@ -99,9 +103,15 @@ const formatEventLine = (event) => {
   return `${event.image} ${event.title} — ${formatDate(event.date)}${daysText}`;
 };
 
-const HomeScreen = ({ navigation }) => {
-  const { width } = useWindowDimensions();
+const DESKTOP_BREAKPOINT = 768;
+
+const HomeScreen = ({ navigation, route }) => {
+  const { width, height } = useWindowDimensions();
   const isSmallScreen = width < 380;
+  const isNativeMobile = Platform.OS === "android" || Platform.OS === "ios";
+  const isDesktopLayout = !isNativeMobile && width >= DESKTOP_BREAKPOINT;
+
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
   const [aiInput, setAiInput] = useState("");
   const [isAiOpen, setIsAiOpen] = useState(false);
@@ -296,6 +306,108 @@ const HomeScreen = ({ navigation }) => {
       typingTimerRef.current = null;
     }
     setIsAiTyping(false);
+  }, []);
+
+  const tutorialSteps = useMemo(() => {
+    const headerTop = Platform.OS === "ios" ? 56 : 12;
+    const headerBox = isDesktopLayout
+      ? { w: 260, h: 52 }
+      : { w: 54, h: 52 };
+
+    const headerSpotlight = {
+      top: headerTop,
+      left: Math.max(16, width - 16 - headerBox.w),
+      width: headerBox.w,
+      height: headerBox.h,
+      borderRadius: 14,
+    };
+
+    const eventSpotlightTop = clamp(Math.round(height * 0.32), 190, 330);
+    const eventSpotlight = {
+      top: eventSpotlightTop,
+      left: 16,
+      width: Math.max(0, width - 32),
+      height: 150,
+      borderRadius: 18,
+    };
+
+    const fabSize = 56;
+    const fabRight = 16;
+    const fabBottom = 18;
+    const fabSpotlight = {
+      top: Math.max(0, height - fabBottom - fabSize),
+      left: Math.max(0, width - fabRight - fabSize),
+      width: fabSize,
+      height: fabSize,
+      borderRadius: 28,
+    };
+
+    const authBody = isDesktopLayout
+      ? "En la esquina superior derecha verás los botones para Iniciar sesión y Registrarte."
+      : "En la esquina superior derecha toca el ☰ para abrir el menú y elegir Iniciar sesión o Registrarte.";
+
+    return [
+      {
+        key: "intro",
+        title: "👋 Bienvenido a SKYATLAS",
+        body: "Explora próximos eventos astronómicos y guarda tus favoritos. Te guío en 4 pasos rápidos.",
+        cardPlacement: "center",
+      },
+      {
+        key: "auth",
+        title: "🔐 Cuenta: iniciar sesión / registro",
+        body: `${authBody}\n\nSi ya iniciaste sesión, ahí mismo verás el acceso a tu perfil.`,
+        spotlight: headerSpotlight,
+        cardPlacement: "topRight",
+      },
+      {
+        key: "details",
+        title: "🔎 Ver más detalles",
+        body: "Toca cualquier tarjeta de evento para abrir la pantalla de Detalles con fecha, visibilidad y recomendaciones.",
+        spotlight: eventSpotlight,
+        cardPlacement: "bottom",
+      },
+      {
+        key: "bot",
+        title: "🤖 Astro‑IA (bot)",
+        body: "Pulsa el botón flotante verde con el robot para abrir el chat. Prueba con: “recomiéndame un evento” o “próximo eclipse”.",
+        spotlight: fabSpotlight,
+        cardPlacement: "bottomRight",
+      },
+    ];
+  }, [height, isDesktopLayout, width]);
+
+  useEffect(() => {
+    let active = true;
+    const forceTutorial = !!route?.params?.forceTutorial;
+
+    const run = async () => {
+      if (forceTutorial) {
+        if (active) setIsTutorialOpen(true);
+        navigation.setParams?.({ forceTutorial: undefined });
+        return;
+      }
+
+      const seen = await hasSeenTutorial();
+      if (!seen && active) {
+        setIsTutorialOpen(true);
+      }
+    };
+
+    run();
+
+    return () => {
+      active = false;
+    };
+  }, [navigation, route?.params?.forceTutorial]);
+
+  const handleTutorialComplete = useCallback(async () => {
+    setIsTutorialOpen(false);
+    try {
+      await setHasSeenTutorial(true);
+    } catch (error) {
+      // no-op: si falla el guardado, el tutorial podría volver a mostrarse
+    }
   }, []);
 
   useEffect(() => {
@@ -563,6 +675,14 @@ const HomeScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0f0f1e" />
+
+      <TutorialOverlay
+        visible={isTutorialOpen}
+        steps={tutorialSteps}
+        onComplete={handleTutorialComplete}
+        initialStep={0}
+      />
+
       <FlatList
         data={astronomicalEvents}
         renderItem={renderItem}
