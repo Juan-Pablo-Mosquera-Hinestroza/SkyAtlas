@@ -116,6 +116,7 @@ const HomeScreen = ({ navigation, route }) => {
   const [aiInput, setAiInput] = useState("");
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [isAiTyping, setIsAiTyping] = useState(false);
+  const [aiHasUnread, setAiHasUnread] = useState(true);
   const typingTimerRef = useRef(null);
   const chatListRef = useRef(null);
   const [chatMessages, setChatMessages] = useState(() => [
@@ -294,6 +295,7 @@ const HomeScreen = ({ navigation, route }) => {
   }, [aiInput, generateAiAnswer]);
 
   const handleAiOpen = useCallback(() => {
+    setAiHasUnread(false);
     setIsAiOpen(true);
   }, []);
 
@@ -307,6 +309,14 @@ const HomeScreen = ({ navigation, route }) => {
     }
     setIsAiTyping(false);
   }, []);
+
+  const prevMessageCountRef = useRef(chatMessages.length);
+  useEffect(() => {
+    if (!isAiOpen && chatMessages.length > prevMessageCountRef.current) {
+      setAiHasUnread(true);
+    }
+    prevMessageCountRef.current = chatMessages.length;
+  }, [chatMessages.length, isAiOpen]);
 
   const tutorialSteps = useMemo(() => {
     const headerTop = Platform.OS === "ios" ? 56 : 12;
@@ -712,6 +722,7 @@ const HomeScreen = ({ navigation, route }) => {
           style={styles.fabImage}
           resizeMode="contain"
         />
+        {aiHasUnread && !isAiOpen ? <View style={styles.fabBadge} /> : null}
       </TouchableOpacity>
 
       <Modal
@@ -893,14 +904,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#2ecc71",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#0f0f1e",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.22)",
     ...Platform.select({
       android: {
-        elevation: 6,
+        elevation: 8,
       },
       ios: {
-        shadowColor: "#000000",
+        shadowColor: "#2ecc71",
         shadowOpacity: 0.3,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 6 },
@@ -908,8 +919,19 @@ const styles = StyleSheet.create({
     }),
   },
   fabImage: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
+  },
+  fabBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#4a90e2",
+    borderWidth: 2,
+    borderColor: "#0f0f1e",
   },
   aiOverlay: {
     flex: 1,

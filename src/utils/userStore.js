@@ -100,5 +100,6 @@ export const createUser = ({ name, email, username, password }) => ({
   email: email.trim(),
   username: username.trim(),
   password,
+  savedEvents: [],
   createdAt: new Date().toISOString(),
 });

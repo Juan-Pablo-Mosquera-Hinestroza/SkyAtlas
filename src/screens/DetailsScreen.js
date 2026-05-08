@@ -25,6 +25,7 @@ const DetailsScreen = ({ route, navigation }) => {
   // useCallback para memorizar la función de navegación
   const handleGoToProfile = useCallback(() => {
     const eventPayload = {
+      eventId: event.id,
       eventName: event.title,
       eventType: event.type,
       eventDate: event.date,
@@ -181,7 +182,7 @@ const DetailsScreen = ({ route, navigation }) => {
                 : { color: accentColor },
             ]}
           >
-            👤 Ver en Mi Perfil de Observador
+            👤 Agregar evento en mi Perfil
           </Text>
         </TouchableOpacity>
       </ScrollView>

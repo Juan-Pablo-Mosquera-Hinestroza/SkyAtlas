@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,18 @@ import {
   StatusBar,
   useWindowDimensions,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 
 import InfoRow from "../components/InfoRow";
 import { AuthContext } from "../context/AuthContext";
+import { loadUsers, saveUsers } from "../utils/userStore";
 
 const ProfileScreen = ({ route, navigation }) => {
   const { width, height } = useWindowDimensions();
-  const { currentUser } = useContext(AuthContext);
+  const { currentUser, sessionToken, logoutUser, updateCurrentUser } =
+    useContext(AuthContext);
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
 
   // Lógica de responsividad
   const isSmallScreen = width < 380;
@@ -37,7 +41,108 @@ const ProfileScreen = ({ route, navigation }) => {
   );
 
   // Obtener datos del evento desde route params (si existen)
-  const eventData = route.params || null;
+  const eventData = route?.params?.eventName ? route.params : null;
+
+  const isEventSaved = useMemo(() => {
+    if (!eventData || !currentUser) return false;
+    const saved = Array.isArray(currentUser.savedEvents)
+      ? currentUser.savedEvents
+      : [];
+
+    const key = eventData.eventId || `${eventData.eventName}-${eventData.eventDate}`;
+    return saved.some((entry) => {
+      const entryKey =
+        entry?.eventId || `${entry?.eventName}-${entry?.eventDate}`;
+      return entryKey === key;
+    });
+  }, [currentUser, eventData]);
+
+  const handleAddEvent = useCallback(async () => {
+    if (!eventData) {
+      Alert.alert(
+        "Sin evento",
+        "Selecciona un evento desde Detalles para poder agregarlo a tu perfil.",
+      );
+      return;
+    }
+
+    if (!sessionToken || !currentUser) {
+      navigation.navigate("Login", {
+        redirectTo: "Profile",
+        eventPayload: eventData,
+      });
+      return;
+    }
+
+    if (isSavingEvent) return;
+
+    setIsSavingEvent(true);
+    try {
+      const users = await loadUsers();
+      const index = users.findIndex((u) => u?.id === currentUser.id);
+
+      if (index === -1) {
+        Alert.alert("Error", "No se encontró tu usuario para guardar el evento.");
+        return;
+      }
+
+      const storedUser = users[index];
+      const prevEvents = Array.isArray(storedUser.savedEvents)
+        ? storedUser.savedEvents
+        : [];
+
+      const key = eventData.eventId || `${eventData.eventName}-${eventData.eventDate}`;
+      const alreadyAdded = prevEvents.some((entry) => {
+        const entryKey =
+          entry?.eventId || `${entry?.eventName}-${entry?.eventDate}`;
+        return entryKey === key;
+      });
+
+      const updatedUser = alreadyAdded
+        ? { ...storedUser, savedEvents: prevEvents }
+        : {
+          ...storedUser,
+          savedEvents: [
+            ...prevEvents,
+            {
+              ...eventData,
+              addedAt: new Date().toISOString(),
+            },
+          ],
+        };
+
+      if (!alreadyAdded) {
+        const nextUsers = [...users];
+        nextUsers[index] = updatedUser;
+        await saveUsers(nextUsers);
+      }
+
+      updateCurrentUser(updatedUser);
+
+      Alert.alert(
+        alreadyAdded ? "Ya estaba agregado" : "Evento agregado",
+        alreadyAdded
+          ? "Este evento ya está en tu perfil."
+          : "Listo, el evento se guardó en tu perfil.",
+      );
+    } catch (error) {
+      Alert.alert("Error", "No se pudo agregar el evento. Intenta de nuevo.");
+    } finally {
+      setIsSavingEvent(false);
+    }
+  }, [
+    currentUser,
+    eventData,
+    isSavingEvent,
+    navigation,
+    sessionToken,
+    updateCurrentUser,
+  ]);
+
+  const handleLogout = useCallback(() => {
+    logoutUser();
+    navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+  }, [logoutUser, navigation]);
 
   // Calcular columnas según tamaño de pantalla
   const columns = useMemo(() => {
@@ -96,6 +201,28 @@ const ProfileScreen = ({ route, navigation }) => {
               ⭐ {observerData.level}
             </Text>
           </View>
+
+          {sessionToken ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleLogout}
+              style={[
+                styles.logoutButton,
+                isSmallScreen && styles.logoutButtonSmall,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar sesión"
+            >
+              <Text
+                style={[
+                  styles.logoutButtonText,
+                  isSmallScreen && styles.logoutButtonTextSmall,
+                ]}
+              >
+                Cerrar sesión
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* Estadísticas del Observador */}
@@ -245,6 +372,28 @@ const ProfileScreen = ({ route, navigation }) => {
                 </View>
               </View>
             </View>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleAddEvent}
+              style={[
+                styles.addEventButton,
+                isSmallScreen && styles.addEventButtonSmall,
+                (isEventSaved || isSavingEvent) && styles.addEventButtonDisabled,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Agregar evento"
+              disabled={isSavingEvent || isEventSaved}
+            >
+              <Text
+                style={[
+                  styles.addEventButtonText,
+                  isSmallScreen && styles.addEventButtonTextSmall,
+                ]}
+              >
+                Agregar evento
+              </Text>
+            </TouchableOpacity>
 
             {/* Preparación para el evento */}
             <View
@@ -444,6 +593,30 @@ const styles = StyleSheet.create({
   levelBadgeTextSmall: {
     fontSize: 12,
   },
+  logoutButton: {
+    marginTop: 14,
+    marginHorizontal: 16,
+    alignSelf: "stretch",
+    backgroundColor: "#1a1a2e",
+    borderWidth: 1,
+    borderColor: "#ff7a7a",
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "center",
+  },
+  logoutButtonSmall: {
+    marginTop: 12,
+    paddingVertical: 9,
+  },
+  logoutButtonText: {
+    color: "#ff7a7a",
+    fontWeight: "900",
+    fontSize: 13,
+  },
+  logoutButtonTextSmall: {
+    fontSize: 12,
+  },
   section: {
     marginBottom: 24,
   },
@@ -531,6 +704,30 @@ const styles = StyleSheet.create({
   },
   eventHighlightSmall: {
     padding: 12,
+  },
+  addEventButton: {
+    backgroundColor: "#2ecc71",
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#0f0f1e",
+    marginBottom: 12,
+  },
+  addEventButtonSmall: {
+    paddingVertical: 10,
+  },
+  addEventButtonDisabled: {
+    opacity: 0.6,
+  },
+  addEventButtonText: {
+    color: "#0f0f1e",
+    fontWeight: "900",
+    fontSize: 13,
+  },
+  addEventButtonTextSmall: {
+    fontSize: 12,
   },
   eventHighlightTitle: {
     fontSize: 20,

@@ -13,6 +13,7 @@ export const AuthContext = createContext({
   registerUser: async () => ({ ok: false, message: "" }),
   loginUser: async () => ({ ok: false, message: "" }),
   logoutUser: () => {},
+  updateCurrentUser: () => {},
 });
 
 const createSessionToken = () =>
@@ -22,6 +23,10 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [sessionToken, setSessionToken] = useState(null);
   const [isBusy, setIsBusy] = useState(false);
+
+  const updateCurrentUser = useCallback((nextUser) => {
+    setCurrentUser(nextUser);
+  }, []);
 
   const registerUser = useCallback(
     async ({ name, email, username, password }) => {
@@ -105,8 +110,17 @@ export const AuthProvider = ({ children }) => {
       registerUser,
       loginUser,
       logoutUser,
+      updateCurrentUser,
     }),
-    [currentUser, sessionToken, isBusy, registerUser, loginUser, logoutUser],
+    [
+      currentUser,
+      sessionToken,
+      isBusy,
+      registerUser,
+      loginUser,
+      logoutUser,
+      updateCurrentUser,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
