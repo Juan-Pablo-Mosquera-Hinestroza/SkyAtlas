@@ -54,18 +54,39 @@ export const AuthProvider = ({ children }) => {
   const loginUser = useCallback(async ({ identifier, password }) => {
     setIsBusy(true);
     try {
-      const users = await loadUsers();
-      const user = findUserByEmailOrUsername(users, identifier);
+      const normalizedIdentifier =
+        typeof identifier === "string" ? identifier.trim() : "";
+      const normalizedPassword = typeof password === "string" ? password : "";
 
-      if (!user || user.password !== password) {
-        return { ok: false, message: "Credenciales invalidas." };
+      if (!normalizedIdentifier || !normalizedPassword) {
+        return {
+          ok: false,
+          code: "EMPTY_FIELDS",
+          message: "Completa los campos requeridos.",
+        };
+      }
+
+      const users = await loadUsers();
+
+      const user = findUserByEmailOrUsername(users, normalizedIdentifier);
+
+      if (!user) {
+        return { ok: false, code: "USER_NOT_FOUND", message: "Usuario no encontrado." };
+      }
+
+      if (user.password !== normalizedPassword) {
+        return {
+          ok: false,
+          code: "WRONG_PASSWORD",
+          message: "Contraseña incorrecta.",
+        };
       }
 
       setCurrentUser(user);
       setSessionToken(createSessionToken());
       return { ok: true, user };
     } catch (error) {
-      return { ok: false, message: "No se pudo iniciar sesion." };
+      return { ok: false, message: "No se pudo iniciar sesión." };
     } finally {
       setIsBusy(false);
     }

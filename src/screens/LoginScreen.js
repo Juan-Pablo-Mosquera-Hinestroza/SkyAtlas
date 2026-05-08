@@ -1,10 +1,11 @@
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useMemo, useRef, useState } from "react";
 import {
 	View,
 	Text,
 	StyleSheet,
 	TextInput,
 	TouchableOpacity,
+	ActivityIndicator,
 	KeyboardAvoidingView,
 	Platform,
 	ScrollView,
@@ -17,25 +18,56 @@ const LoginScreen = ({ navigation, route }) => {
 	const { width } = useWindowDimensions();
 	const isSmall = width < 380;
 	const { loginUser, isBusy } = useContext(AuthContext);
+	const scrollRef = useRef(null);
+	const passwordRef = useRef(null);
+	const cardOffsetY = useRef(0);
+	const fieldOffsetY = useRef({ identifier: 0, password: 0 });
 
 	const [form, setForm] = useState({ identifier: "", password: "" });
+	const [touched, setTouched] = useState({ identifier: false, password: false });
+	const [serverErrors, setServerErrors] = useState({
+		identifier: "",
+		password: "",
+	});
 	const [feedback, setFeedback] = useState({ type: "", message: "" });
 
 	const identifierOk = useMemo(() => form.identifier.trim().length > 0, [
 		form.identifier,
 	]);
-	const passwordOk = useMemo(() => form.password.length >= 6, [form.password]);
+	const passwordOk = useMemo(() => form.password.length > 0, [form.password]);
 	const canSubmit = identifierOk && passwordOk && !isBusy;
+
+	const identifierError = useMemo(() => {
+		if (!touched.identifier && !serverErrors.identifier) return "";
+		if (!form.identifier.trim()) return "El correo o usuario es obligatorio.";
+		return serverErrors.identifier || "";
+	}, [form.identifier, touched.identifier, serverErrors.identifier]);
+
+	const passwordError = useMemo(() => {
+		if (!touched.password && !serverErrors.password) return "";
+		if (!form.password) return "La contraseña es obligatoria.";
+		return serverErrors.password || "";
+	}, [form.password, touched.password, serverErrors.password]);
+
+	const scrollToField = (field) => {
+		const cardY = cardOffsetY.current ?? 0;
+		const fieldY = fieldOffsetY.current?.[field] ?? 0;
+		const targetY = Math.max(0, cardY + fieldY - 24);
+		scrollRef.current?.scrollTo({ y: targetY, animated: true });
+	};
 
 	const handleChange = (field, value) => {
 		setForm((prev) => ({ ...prev, [field]: value }));
+		setServerErrors((prev) => ({ ...prev, [field]: "" }));
 	};
 
 	const handleSubmit = async () => {
 		setFeedback({ type: "", message: "" });
+		setTouched({ identifier: true, password: true });
+		setServerErrors({ identifier: "", password: "" });
 
-		if (!canSubmit) {
-			setFeedback({ type: "error", message: "Completa tus credenciales." });
+		if (!identifierOk || !passwordOk) {
+			setFeedback({ type: "error", message: "Revisa los campos marcados." });
 			return;
 		}
 
@@ -45,11 +77,21 @@ const LoginScreen = ({ navigation, route }) => {
 		});
 
 		if (!result.ok) {
+			if (result.code === "USER_NOT_FOUND") {
+				setServerErrors({ identifier: result.message, password: "" });
+				return;
+			}
+
+			if (result.code === "WRONG_PASSWORD") {
+				setServerErrors({ identifier: "", password: result.message });
+				return;
+			}
+
 			setFeedback({ type: "error", message: result.message });
 			return;
 		}
 
-		setFeedback({ type: "success", message: "Sesion iniciada." });
+		setFeedback({ type: "success", message: "Sesión iniciada." });
 
 		if (route?.params?.redirectTo) {
 			navigation.reset({
@@ -70,17 +112,26 @@ const LoginScreen = ({ navigation, route }) => {
 	return (
 		<KeyboardAvoidingView
 			style={styles.flex}
-			behavior={Platform.OS === "ios" ? "padding" : undefined}
+			behavior={Platform.OS === "ios" ? "padding" : "height"}
 		>
 			<StatusBar barStyle="light-content" backgroundColor="#0f0f1e" />
 			<ScrollView
+				ref={scrollRef}
 				contentContainerStyle={styles.scrollContent}
 				keyboardShouldPersistTaps="handled"
+				keyboardDismissMode={Platform.OS === "ios" ? "on-drag" : "none"}
+				automaticallyAdjustKeyboardInsets
+				showsVerticalScrollIndicator={false}
 			>
 				<View style={styles.heroGlow} />
 				<View style={styles.heroGlowSecondary} />
 
-				<View style={[styles.card, isSmall && styles.cardSmall]}>
+				<View
+					style={[styles.card, isSmall && styles.cardSmall]}
+					onLayout={(event) => {
+						cardOffsetY.current = event.nativeEvent.layout.y;
+					}}
+				>
 					<Text style={[styles.title, isSmall && styles.titleSmall]}>
 						Bienvenido de vuelta
 					</Text>
@@ -88,28 +139,56 @@ const LoginScreen = ({ navigation, route }) => {
 						Ingresa con tu correo o usuario para continuar.
 					</Text>
 
-					<View style={styles.inputGroup}>
+					<View
+						style={styles.inputGroup}
+						onLayout={(event) => {
+							fieldOffsetY.current.identifier = event.nativeEvent.layout.y;
+						}}
+					>
 						<Text style={styles.label}>Correo o usuario</Text>
 						<TextInput
-							style={styles.input}
+							style={[styles.input, identifierError && styles.inputError]}
 							placeholder="correo@ejemplo.com"
 							placeholderTextColor="#7f86a8"
 							autoCapitalize="none"
+							autoCorrect={false}
 							value={form.identifier}
 							onChangeText={(value) => handleChange("identifier", value)}
+							onFocus={() => scrollToField("identifier")}
+							onBlur={() =>
+								setTouched((prev) => ({ ...prev, identifier: true }))
+							}
+							returnKeyType="next"
+							onSubmitEditing={() => passwordRef.current?.focus()}
 						/>
+						{identifierError ? (
+							<Text style={styles.fieldError}>{identifierError}</Text>
+						) : null}
 					</View>
 
-					<View style={styles.inputGroup}>
+					<View
+						style={styles.inputGroup}
+						onLayout={(event) => {
+							fieldOffsetY.current.password = event.nativeEvent.layout.y;
+						}}
+					>
 						<Text style={styles.label}>Contraseña</Text>
 						<TextInput
-							style={styles.input}
+							ref={passwordRef}
+							style={[styles.input, passwordError && styles.inputError]}
 							placeholder="Tu contraseña"
 							placeholderTextColor="#7f86a8"
 							secureTextEntry
 							value={form.password}
 							onChangeText={(value) => handleChange("password", value)}
+							onFocus={() => scrollToField("password")}
+							onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+							returnKeyType="done"
+							onSubmitEditing={handleSubmit}
 						/>
+						{passwordError ? (
+							<Text style={styles.fieldError}>{passwordError}</Text>
+						) : null}
 					</View>
 
 					{feedback.message ? (
@@ -127,12 +206,24 @@ const LoginScreen = ({ navigation, route }) => {
 					<TouchableOpacity
 						activeOpacity={0.85}
 						onPress={handleSubmit}
-						style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
-						disabled={!canSubmit}
+						style={[
+							styles.submitButton,
+							(!canSubmit || isBusy) && styles.submitButtonDisabled,
+						]}
+						disabled={isBusy}
 					>
-						<Text style={styles.submitText}>
-							{isBusy ? "Ingresando..." : "Iniciar sesion"}
-						</Text>
+						<View style={styles.submitContent}>
+							{isBusy ? (
+								<ActivityIndicator
+									size="small"
+									color="#ffffff"
+									style={styles.submitSpinner}
+								/>
+							) : null}
+							<Text style={styles.submitText}>
+								{isBusy ? "Ingresando..." : "Iniciar sesión"}
+							</Text>
+						</View>
 					</TouchableOpacity>
 
 					<TouchableOpacity
@@ -157,6 +248,7 @@ const styles = StyleSheet.create({
 	scrollContent: {
 		flexGrow: 1,
 		padding: 20,
+		paddingBottom: 32,
 		justifyContent: "center",
 	},
 	heroGlow: {
@@ -223,6 +315,14 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: "rgba(255, 255, 255, 0.08)",
 	},
+	inputError: {
+		borderColor: "#ff7a7a",
+	},
+	fieldError: {
+		color: "#ff7a7a",
+		fontSize: 11,
+		marginTop: 6,
+	},
 	feedback: {
 		marginTop: 6,
 		marginBottom: 8,
@@ -252,6 +352,14 @@ const styles = StyleSheet.create({
 	submitText: {
 		color: "#ffffff",
 		fontWeight: "700",
+	},
+	submitContent: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	submitSpinner: {
+		marginRight: 8,
 	},
 	secondaryAction: {
 		marginTop: 14,
